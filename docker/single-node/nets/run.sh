@@ -130,8 +130,16 @@ else
 
     echo "Using existing node volumes at: $vol_root"
     cd "$vol_root"
-    # Start only the long-running services, using pre-built images
-    docker compose up monad_execution monad_node monad_rpc
+    # Start only the long-running services,
+    if [ "$USE_PREBUILT" = true ]; then
+        # use pre-built images
+        echo "Using pre-built images..."
+        docker compose -f compose.yaml -f compose.prebuilt.yaml up monad_execution monad_node monad_rpc
+    else
+        # use self-built images
+        echo "Using locally built images..."
+        docker compose up monad_execution monad_node monad_rpc
+    fi
 fi
 
 exit 0

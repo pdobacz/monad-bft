@@ -1,11 +1,17 @@
 services:
   build_triedb:
     image: monad-execution-builder:latest
-    command: monad_mpt --storage /monad/triedb/test.db --create
+    command: monad_mpt --storage /dev/triedb --create
     volumes:
       - ./node:/monad
+    devices:
+      - /dev/triedb:/dev/triedb
     security_opt:
       - "seccomp:${MONAD_BFT_ROOT}/docker/devnet/monad/config/profile.json"
+    ulimits:
+      nofile:
+        soft: 16384
+        hard: 16384
 
   build_genesis:
     image: monad-execution-builder:latest
@@ -14,12 +20,14 @@ services:
         condition: service_completed_successfully
     volumes:
       - ./node:/monad
+    devices:
+      - /dev/triedb:/dev/triedb
     security_opt:
       - "seccomp:${MONAD_BFT_ROOT}/docker/devnet/monad/config/profile.json"
     command:
       monad
       --chain monad_devnet
-      --db /monad/triedb/test.db
+      --db /dev/triedb
       --block_db /monad/ledger
       --nblocks 0
       --log_level ERROR
@@ -27,6 +35,9 @@ services:
       memlock:
         soft: "16770785280"
         hard: "16770785280"
+      nofile:
+        soft: 16384
+        hard: 16384
 
   monad_execution:
     image: monad-execution-builder:latest
@@ -37,19 +48,25 @@ services:
         condition: service_completed_successfully
     volumes:
       - ./node:/monad
+      - sockets-volume:/sockets
+    devices:
+      - /dev/triedb:/dev/triedb
     security_opt:
       - "seccomp:${MONAD_BFT_ROOT}/docker/devnet/monad/config/profile.json"
     command: |
       monad
       --chain monad_devnet
-      --db /monad/triedb/test.db
+      --db /dev/triedb
       --block_db /monad/ledger
-      --statesync /monad/statesync.sock
+      --statesync /sockets/statesync.sock
       --log_level ERROR
     ulimits:
       memlock:
         soft: "16770785280"
         hard: "16770785280"
+      nofile:
+        soft: 16384
+        hard: 16384
 
   monad_node:
     build:
@@ -65,6 +82,9 @@ services:
       - RUST_LOG=
     volumes:
       - ./node:/monad
+      - sockets-volume:/sockets
+    devices:
+      - /dev/triedb:/dev/triedb
     security_opt:
       - "seccomp:${MONAD_BFT_ROOT}/docker/devnet/monad/config/profile.json"
     command: |
@@ -74,16 +94,19 @@ services:
       --node-config /monad/config/node.toml
       --forkpoint-config /monad/config/forkpoint.genesis.toml
       --validators-path /monad/config/validators.toml
-      --statesync-ipc-path /monad/statesync.sock
+      --statesync-ipc-path /sockets/statesync.sock
       --wal-path /monad/wal
-      --mempool-ipc-path /monad/mempool.sock
-      --control-panel-ipc-path /monad/controlpanel.sock
+      --mempool-ipc-path /sockets/mempool.sock
+      --control-panel-ipc-path /sockets/controlpanel.sock
       --ledger-path /monad/ledger
-      --triedb-path /monad/triedb
+      --triedb-path /dev/triedb
     ulimits:
       memlock:
         soft: "16770785280"
         hard: "16770785280"
+      nofile:
+        soft: 16384
+        hard: 16384
 
   monad_rpc:
     build:
@@ -97,20 +120,30 @@ services:
       - monad_node
     volumes:
       - ./node:/monad
+      - sockets-volume:/sockets
+    devices:
+      - /dev/triedb:/dev/triedb
     security_opt:
       - "seccomp:${MONAD_BFT_ROOT}/docker/devnet/monad/config/profile.json"
     ports:
       - "8080:8080"
     command: |
       monad-rpc
-      --ipc-path /monad/mempool.sock
-      --triedb-path /monad/triedb
+      --ipc-path /sockets/mempool.sock
+      --triedb-path /dev/triedb
       --node-config /monad/config/node.toml
+      --allow-unprotected-txs
     ulimits:
       memlock:
         soft: "16770785280"
         hard: "16770785280"
+      nofile:
+        soft: 16384
+        hard: 16384
 
 networks:
   default:
     driver: bridge
+
+volumes:
+  sockets-volume:
