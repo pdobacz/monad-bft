@@ -60,6 +60,7 @@ services:
       --block_db /monad/ledger
       --statesync /sockets/statesync.sock
       --log_level ERROR
+      --trace_calls
     ulimits:
       memlock:
         soft: "16770785280"
